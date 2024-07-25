@@ -40,6 +40,7 @@ dependencies:
   speech_to_text: ^6.6.2
   http: ^1.2.2
   lottie: ^3.1.2
+  just_audio: ^0.9.37
 
 dev_dependencies:
   flutter_test:

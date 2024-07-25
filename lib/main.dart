@@ -1,6 +1,6 @@
 import 'package:dash_chat_2/dash_chat_2.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_tts/flutter_tts.dart';
+import 'package:just_audio/just_audio.dart';
 import 'package:speech_to_text/speech_recognition_result.dart';
 import 'package:speech_to_text/speech_to_text.dart';
 import 'package:http/http.dart' as http;
@@ -51,16 +51,15 @@ class _MyHomePageState extends State<MyHomePage> {
     firstName: 'IVF Training ',
     lastName: 'AI Bot',
   );
-  late FlutterTts flutterTts;
   bool isTTS = false;
   SpeechToText _speechToText = SpeechToText();
   bool _isTyping = false;
   bool _isLoading = false;
+  final AudioPlayer _audioPlayer = AudioPlayer();
 
   @override
   void initState() {
     super.initState();
-    flutterTts = FlutterTts();
     _initSpeech();
     controller.addListener(_handleTyping);
   }
@@ -129,9 +128,11 @@ class _MyHomePageState extends State<MyHomePage> {
     final requestPayload = {
       "message": controller.text,
     };
+
     try {
       final response = await http.post(
-        Uri.parse('http://192.168.152.98:5000/chat'), // Replace with actual URL
+        Uri.parse(
+            'https://ivfendpoint-flask.onrender.com/chat'), // Replace with actual URL
         headers: {"Content-Type": "application/json"},
         body: json.encode(requestPayload),
       );
@@ -146,7 +147,7 @@ class _MyHomePageState extends State<MyHomePage> {
         );
         messages.insert(0, msg);
         if (isTTS) {
-          flutterTts.speak(results);
+          await _speak(results);
         }
         setState(() {
           messages;
@@ -164,6 +165,33 @@ class _MyHomePageState extends State<MyHomePage> {
     });
 
     controller.text = "";
+  }
+
+  Future<void> _speak(String text) async {
+    final requestPayload = {
+      "text": text,
+    };
+
+    try {
+      final response = await http.post(
+        Uri.parse(
+            ' http://127.0.0.1:5000/synthesize'), // Replace with actual URL
+        headers: {"Content-Type": "application/json"},
+        body: json.encode(requestPayload),
+      );
+
+      if (response.statusCode == 200) {
+        final responseData = json.decode(response.body);
+        final audioUrl = responseData['audio_url'];
+
+        await _audioPlayer.setUrl(audioUrl);
+        _audioPlayer.play();
+      } else {
+        print('Error: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('Exception: $e');
+    }
   }
 
   @override
@@ -188,9 +216,6 @@ class _MyHomePageState extends State<MyHomePage> {
               setState(() {
                 isTTS = !isTTS;
               });
-              if (!isTTS) {
-                flutterTts.stop();
-              }
             },
           )
         ],
@@ -249,7 +274,7 @@ class _MyHomePageState extends State<MyHomePage> {
                               messages;
                             });
                             chatComplete();
-                            controller.text="";
+                            controller.text = "";
                           },
                           child: Icon(
                             Icons.send,
@@ -294,6 +319,7 @@ class _MyHomePageState extends State<MyHomePage> {
   void dispose() {
     controller.removeListener(_handleTyping);
     controller.dispose();
+    _audioPlayer.dispose();
     super.dispose();
   }
 }
