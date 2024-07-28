@@ -1,11 +1,11 @@
 import 'package:dash_chat_2/dash_chat_2.dart';
 import 'package:flutter/material.dart';
-import 'package:just_audio/just_audio.dart';
 import 'package:speech_to_text/speech_recognition_result.dart';
 import 'package:speech_to_text/speech_to_text.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:lottie/lottie.dart';
+import 'package:audioplayers/audioplayers.dart' as audioplayers;
 
 void main() {
   runApp(const MyApp());
@@ -55,7 +55,7 @@ class _MyHomePageState extends State<MyHomePage> {
   SpeechToText _speechToText = SpeechToText();
   bool _isTyping = false;
   bool _isLoading = false;
-  final AudioPlayer _audioPlayer = AudioPlayer();
+  final audioplayers.AudioPlayer _audioPlayer = audioplayers.AudioPlayer();
 
   @override
   void initState() {
@@ -81,10 +81,6 @@ class _MyHomePageState extends State<MyHomePage> {
     if (_speechEnabled) {
       await _speechToText.listen(
         onResult: _onSpeechResult,
-        listenFor: Duration(minutes: 5),
-        pauseFor: Duration(seconds: 5),
-        partialResults: true,
-        onSoundLevelChange: _soundLevelListener,
       );
       setState(() {});
     }
@@ -131,8 +127,7 @@ class _MyHomePageState extends State<MyHomePage> {
 
     try {
       final response = await http.post(
-        Uri.parse(
-            'https://ivfendpoint-flask.onrender.com/chat'), // Replace with actual URL
+        Uri.parse('https://ivfendpoint-flask.onrender.com/chat'), // Replace with actual URL
         headers: {"Content-Type": "application/json"},
         body: json.encode(requestPayload),
       );
@@ -174,18 +169,31 @@ class _MyHomePageState extends State<MyHomePage> {
 
     try {
       final response = await http.post(
-        Uri.parse(
-            ' http://127.0.0.1:5000/synthesize'), // Replace with actual URL
+        Uri.parse('https://elevenlabsflaskendpoint.onrender.com/text-to-speech'), // Replace with actual URL
         headers: {"Content-Type": "application/json"},
         body: json.encode(requestPayload),
       );
 
       if (response.statusCode == 200) {
         final responseData = json.decode(response.body);
-        final audioUrl = responseData['audio_url'];
+        print("Response Data: $responseData"); // Log the entire response data
 
-        await _audioPlayer.setUrl(audioUrl);
-        _audioPlayer.play();
+        if (responseData.containsKey('audio_file_path')) {
+          final audioFilePath = responseData['audio_file_path'];
+
+          print("Audio File Path: $audioFilePath"); // Debugging line
+
+          // Ensure the file path is valid
+          if (audioFilePath.isNotEmpty) {
+            // Construct the full URL for the audio file
+            final audioUrl = 'https://example.com/audio/$audioFilePath'; // Replace with your actual base URL
+            await _audioPlayer.play(audioUrl as audioplayers.Source);
+          } else {
+            print("Invalid audio file path");
+          }
+        } else {
+          print("Key 'audio_file_path' not found in response");
+        }
       } else {
         print('Error: ${response.statusCode}');
       }
